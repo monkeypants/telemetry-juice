@@ -1,0 +1,66 @@
+[project]
+name = "monkeypants-telemetry"
+version = "0.1.0"
+description = "The client half of the platform telemetry contract: OTLP setup that no-ops when no platform is present."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.27.0",
+]
+
+# Every integration is optional. A Django project must be able to install
+# this without dragging in temporalio, and vice versa — that is the whole
+# reason the package is split this way.
+[project.optional-dependencies]
+fastapi = ["opentelemetry-instrumentation-fastapi>=0.48b0"]
+django = ["opentelemetry-instrumentation-django>=0.48b0"]
+redis = ["opentelemetry-instrumentation-redis>=0.48b0"]
+sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy>=0.48b0"]
+httpx = ["opentelemetry-instrumentation-httpx>=0.48b0"]
+psycopg = ["opentelemetry-instrumentation-psycopg>=0.48b0"]
+temporal = ["temporalio>=1.7.0"]
+structlog = ["structlog>=24.1.0"]
+
+[dependency-groups]
+# temporalio is here and the other integrations' libraries are not, because
+# it is the only one this package *subclasses*. Without it installed mypy
+# resolves the interceptor base classes to `Any`, and strict mode rejects
+# subclassing `Any` — so the choice was between silencing that and checking
+# it for real. Checking it for real is worth one dev dependency: an
+# interceptor with a wrong signature is exactly the defect a type checker
+# should catch, and it is not covered by a test.
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "temporalio>=1.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/monkeypants_telemetry"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# temporalio is no longer here: it is installed in the dev group, so its
+# real types are checked rather than assumed missing.
+module = ["opentelemetry.*", "structlog.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,67 @@
+#!/bin/sh
+# Two gates on everything leaving this machine.
+#
+# stdin is <local ref> <local sha> <remote ref> <remote sha> per line, and it
+# can only be consumed once — so it is captured up front and walked twice.
+# The obvious two-loop version silently skips the second check, because the
+# second loop reads an empty stdin and passes.
+
+guard="$(git rev-parse --show-toplevel)/scripts/reject_attribution.sh"
+zero=$(git hash-object --stdin </dev/null | tr '[:xdigit:]' '0')
+refs=$(cat)
+status=0
+
+# --- 1. refuse a direct push to master --------------------------------
+# The standing rule is feature branch and pull request. Stated and not
+# enforced, it gets broken by accident rather than by argument — which is
+# how it was broken before this hook existed. A rule that cannot be broken
+# by accident is worth more than one everybody agrees with.
+#
+# ALLOW_MASTER_PUSH=1 is the deliberate override, for the genuine exceptions:
+# an initial commit, or a fix to this hook. Not for convenience, and not for
+# "it is only a small change" — that is what a branch costs nothing for.
+echo "$refs" | while read -r _ local_sha remote_ref _; do
+    [ -z "$remote_ref" ] && continue
+    [ "$local_sha" = "$zero" ] && continue              # a deletion
+    case "$remote_ref" in
+        refs/heads/master|refs/heads/main)
+            [ "${ALLOW_MASTER_PUSH:-}" = "1" ] && continue
+            printf '\nPush to %s refused.\n\n' "$remote_ref"
+            printf '  This repository is pull-request only.\n\n'
+            printf '    git checkout -b <descriptive-name>\n'
+            printf '    git push -u origin <descriptive-name>\n'
+            printf '    gh pr create --title "..." --body "..."\n\n'
+            printf '  Branch names are plain and descriptive: no feat/ or fix/.\n'
+            printf '  ALLOW_MASTER_PUSH=1 overrides, for an initial commit or a\n'
+            printf '  fix to this hook. Not for convenience.\n\n'
+            exit 1
+            ;;
+    esac
+done || status=1
+[ "$status" -ne 0 ] && exit 1
+
+# --- 2. no commit claims a machine wrote it ---------------------------
+# Gate every commit leaving the machine, not just the one being written. An
+# amend, a rebase, a cherry-pick or a graft can carry a trailer past
+# commit-msg; nothing reaches the forge without passing here.
+echo "$refs" | while read -r _ local_sha remote_ref remote_sha; do
+    [ -z "$remote_ref" ] && continue
+    [ "$local_sha" = "$zero" ] && continue              # a deletion
+
+    if [ "$remote_sha" = "$zero" ]; then                # a new ref
+        range=$(git rev-list "$local_sha" --not --remotes)
+    else
+        range=$(git rev-list "$remote_sha..$local_sha")
+    fi
+
+    for sha in $range; do
+        if ! git log -1 --format='%B' "$sha" | "$guard" >/dev/null 2>&1; then
+            printf '\n%s  %s\n' "$(git log -1 --format='%h %s' "$sha")" "-> $remote_ref"
+            git log -1 --format='%B' "$sha" | "$guard"
+            exit 1
+        fi
+    done
+done || status=1
+
+[ "$status" -ne 0 ] && printf 'Push refused. Rewrite the messages above.\n\n'
+exit "$status"

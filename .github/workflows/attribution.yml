@@ -1,0 +1,76 @@
+name: Attribution
+
+# No commit message or pull request body leaves this repository
+# carrying AI attribution. The human is 100% accountable for the work,
+# and an attribution they did not write is incriminating to them.
+#
+# The hooks in .githooks cover commits made in a local checkout. They
+# do not cover a pull request body, which is composed in a browser or
+# by a tool and never touches a hook - so a trailer injected there
+# lands on a pull request ref that the forge will not delete without a
+# support request. This closes that half.
+#
+# Both halves run scripts/reject_attribution.sh against
+# scripts/attribution-denylist.txt, so there is one list and the hook
+# and the workflow cannot drift apart. Adding a vendor means editing
+# that file and nothing else.
+
+on:
+  pull_request:
+    # edited catches a body rewritten after the checks went green,
+    # which is the window an injected trailer would land in.
+    types: [opened, reopened, edited, synchronize]
+  push:
+    branches: [master]
+
+concurrency:
+  group: attribution-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  body:
+    name: pull request body
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the pull request title and body
+        env:
+          # Through the environment, never interpolated into the shell:
+          # a body is untrusted text and ${{ }} in a run block would
+          # execute it.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n\n%s\n' "$PR_TITLE" "$PR_BODY" \
+            | ./scripts/reject_attribution.sh '' 'pull request body'
+
+  commits:
+    name: commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The hooks are local and a force-push can bypass them, so
+          # the messages are checked again here from the server's copy.
+          fetch-depth: 0
+      # The commits this ref adds, never the history behind them. The
+      # rule binds what is being proposed; what is already merged is
+      # not rewritten for it.
+      - name: Check the commit messages this ref adds
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="origin/${{ github.base_ref }}..HEAD"
+          else
+            range="HEAD~1..HEAD"
+          fi
+          status=0
+          for sha in $(git rev-list "$range"); do
+            git log -1 --format=%B "$sha" \
+              | ./scripts/reject_attribution.sh '' "commit message of $sha" \
+              || status=1
+          done
+          exit $status

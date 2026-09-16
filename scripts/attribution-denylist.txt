@@ -1,0 +1,75 @@
+# Patterns that may not appear in a commit message or a pull request
+# body. One POSIX extended regular expression per line. Blank lines and
+# lines beginning with # are ignored. scripts/reject_attribution.sh
+# joins them with | and is the only thing that reads this file, so the
+# commit-msg hook, the pre-push hook and the CI workflow all enforce
+# exactly this list.
+#
+# The rule is not about one vendor. Any attribution of authorship to a
+# tool is forbidden, because the human is 100% accountable for every
+# commit and an attribution they did not write is incriminating to
+# them. Add vendors here as they appear; nothing else needs editing.
+#
+# EVERY PATTERN HERE IS MATCHED CASE-INSENSITIVELY. Write them in lower
+# case; reject_attribution.sh passes -i. Do not encode case with [Cc]
+# classes - that was how it used to be done, it made case something each
+# new line had to remember, and the line that forgot left a hole shaped
+# exactly like a convention: trailers are conventionally capitalised, so
+# a pattern anchored to a capital caught the polite form and missed
+# every other spelling of it.
+#
+# Two kinds of pattern, and the distinction matters:
+#
+#   1. Trailer-scoped. A vendor name is only forbidden as the value of
+#      an attribution trailer. This is deliberate and must stay that
+#      way: "cursor", "continue", "copilot" and "gemini" are ordinary
+#      words. Prose legitimately says "a cursor only moves forward",
+#      and a bare match on the word would refuse honest messages. A
+#      gate that cries wolf gets disabled, and a disabled gate is how
+#      an injected trailer reaches
+#      master.
+#
+#   2. Unambiguous anywhere. A session URL or a product tagline is not
+#      something an honest message about this codebase contains.
+#
+# Adding a vendor: put it in the alternation on the trailer line. Only
+# add a standalone pattern when the string cannot occur innocently.
+#
+# Writing about the rule trips the rule, and that is not a bug to be
+# escaped. A commit message or pull request body that describes a
+# forbidden trailer must describe it - "a co-authorship trailer", "the
+# vendor no-reply address" - rather than spell it. Lines starting with
+# # are skipped, which is what lets this file name its own patterns,
+# but there is deliberately no exemption marker: anything that lets
+# text opt out of the check is a hole, and "put it in a code fence"
+# would be a one-line bypass of the whole control.
+
+# --- 1. trailers that claim authorship: refused, whatever they name ---
+# Not only tools. The human whose name is on the commit is 100%
+# accountable for it, and a second author dilutes exactly the thing
+# that makes them accountable. If two people wrote it, one of them
+# commits it and the message says who did what in prose.
+#
+# History carries 92 of these, nearly all dependabot's. They are not
+# rewritten: the branch's own commits are what is checked, not the
+# history it is built on.
+(co-?authored|co-?developed|assisted|generated|created|written|produced|committed)-by:
+
+# --- 1b. trailers that do not claim authorship --------------------------
+# Signed-off-by, Reviewed-by, Acked-by, Tested-by, Reported-by and
+# Suggested-by are the kernel's process trailers and are welcome. They
+# say who checked a thing, not who wrote it. A tool may not hide in
+# one, so these are matched against the vendor list.
+(signed-?off|reviewed|acked|tested|reported|suggested)-by:.*(claude|anthropic|gpt|chat ?gpt|openai|codex|copilot|cursor|codeium|windsurf|gemini|bard|cody|devin|aider|tabnine|code ?whisperer|amazon q|llama|mistral|cohere|replit|bolt\.new|lovable|sonnet|opus|haiku|fable|\bai\b|\bllm\b|bot>)
+
+# --- 2. strings that cannot occur innocently ---------------------------
+# Session and share URLs.
+claude\.ai/code
+claude\.com/claude-code
+chatgpt\.com/(share|c)/
+chat\.openai\.com/share
+(^|[^a-z0-9.])(claude|codex|copilot|cursor|devin)-session:
+noreply@anthropic\.com
+# Product taglines, as the tools emit them.
+(generated|co-authored|created) with .{0,6}(claude|copilot|cursor|chatgpt|gemini|devin|codex)
+🤖
