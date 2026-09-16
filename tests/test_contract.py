@@ -11,17 +11,21 @@ import json
 import logging
 import subprocess
 import sys
+import uuid
 
 import pytest
+from opentelemetry import trace
 
 from monkeypants_telemetry import (
     ContractFormatter,
+    PinnedIdGenerator,
     TelemetryConfig,
     add_trace_id,
     configure,
     get_meter,
     get_trace_id,
     inject_context,
+    pinned_trace_id,
 )
 
 
@@ -241,3 +245,112 @@ class TestEveryAdvertisedIntegrationExists:
             f"promises it, but integrations.clients has no {name}(). A "
             "project that installs the extra has no way to use it."
         )
+
+
+class TestPinningATraceToADomainId:
+    """Work that already has an identity can emit a trace under it.
+
+    The case this exists for: a batch runner whose runs are identified by
+    UUID, logging while it works and emitting the trace only once the run
+    has finished. Without this the logs and the trace cannot be joined,
+    because the trace id did not exist while the logs were being written.
+    """
+
+    def test_a_uuid_becomes_the_trace_id(self) -> None:
+        generator = PinnedIdGenerator()
+        run_id = "fef5abac-7308-4ba7-9cc0-c79b2d727203"
+        with pinned_trace_id(run_id):
+            assert generator.generate_trace_id() == int(run_id.replace("-", ""), 16)
+
+    def test_bare_hex_is_accepted_too(self) -> None:
+        generator = PinnedIdGenerator()
+        with pinned_trace_id("fef5abac73084ba79cc0c79b2d727203"):
+            assert format(generator.generate_trace_id(), "032x") == (
+                "fef5abac73084ba79cc0c79b2d727203"
+            )
+
+    def test_a_uuid_object_is_accepted(self) -> None:
+        generator = PinnedIdGenerator()
+        value = uuid.UUID("fef5abac-7308-4ba7-9cc0-c79b2d727203")
+        with pinned_trace_id(value):
+            assert generator.generate_trace_id() == int(value)
+
+    def test_ids_are_random_again_outside_the_block(self) -> None:
+        """The generator is installed always, so this is the common path."""
+        generator = PinnedIdGenerator()
+        with pinned_trace_id("fef5abac-7308-4ba7-9cc0-c79b2d727203"):
+            pass
+        assert len({generator.generate_trace_id() for _ in range(20)}) == 20
+
+    def test_nesting_restores_the_outer_pin(self) -> None:
+        generator = PinnedIdGenerator()
+        outer = "11111111-1111-4111-8111-111111111111"
+        inner = "22222222-2222-4222-8222-222222222222"
+        with pinned_trace_id(outer):
+            with pinned_trace_id(inner):
+                assert generator.generate_trace_id() == int(inner.replace("-", ""), 16)
+            assert generator.generate_trace_id() == int(outer.replace("-", ""), 16)
+
+    def test_the_pin_is_released_even_when_the_body_raises(self) -> None:
+        generator = PinnedIdGenerator()
+        pinned = int("fef5abac73084ba79cc0c79b2d727203", 16)
+        with (
+            pytest.raises(RuntimeError),
+            pinned_trace_id("fef5abac-7308-4ba7-9cc0-c79b2d727203"),
+        ):
+            raise RuntimeError("boom")
+        assert generator.generate_trace_id() != pinned
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "not-a-uuid",
+            "",
+            "abc",
+            "00000000-0000-0000-0000-000000000000",  # the invalid trace id
+            0,
+        ],
+    )
+    def test_a_value_that_is_not_a_trace_id_is_refused(self, bad: object) -> None:
+        """Loudly, at the pin, rather than as an unreadable trace later."""
+        with pytest.raises(ValueError), pinned_trace_id(bad):  # type: ignore[arg-type]
+            pass
+
+    def test_only_root_spans_are_pinned(self) -> None:
+        """A child inherits its parent's trace id, pin or no pin.
+
+        This is what makes the generator safe to install unconditionally:
+        it can only ever affect a span that would have started a new trace.
+        """
+        from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+
+        provider = TracerProvider(id_generator=PinnedIdGenerator())
+        tracer = provider.get_tracer("test")
+        run_id = "fef5abac-7308-4ba7-9cc0-c79b2d727203"
+        expected = int(run_id.replace("-", ""), 16)
+
+        with pinned_trace_id(run_id):
+            root = tracer.start_span("run")
+            assert root.get_span_context().trace_id == expected
+            with trace.use_span(root, end_on_exit=False):
+                child = tracer.start_span("step")  # noqa: SIM117
+            assert child.get_span_context().trace_id == expected
+            assert isinstance(child, ReadableSpan)
+            assert child.parent is not None
+            assert child.parent.span_id == root.get_span_context().span_id
+
+    def test_the_pinned_span_is_a_root_with_no_parent(self) -> None:
+        """The whole point of doing this in the generator.
+
+        Carrying the id on a synthetic parent context instead leaves the
+        run span parented to a span that was never sent, and Tempo reports
+        the trace as `<root span not yet received>` — nameless in search.
+        """
+        from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+
+        provider = TracerProvider(id_generator=PinnedIdGenerator())
+        tracer = provider.get_tracer("test")
+        with pinned_trace_id("fef5abac-7308-4ba7-9cc0-c79b2d727203"):
+            span = tracer.start_span("run")
+        assert isinstance(span, ReadableSpan)
+        assert span.parent is None
