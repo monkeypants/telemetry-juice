@@ -6,6 +6,7 @@ from opentelemetry import metrics, trace
 from opentelemetry.sdk.resources import Resource
 
 from .config import TelemetryConfig
+from .trace_context import PinnedIdGenerator
 
 _config: TelemetryConfig | None = None
 
@@ -54,7 +55,12 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
 
     resource = _build_resource(config)
 
-    tracer_provider = TracerProvider(resource=resource)
+    # PinnedIdGenerator so that work with an identity of its own - a batch
+    # run, a workflow - can emit a trace under that id. Random otherwise;
+    # see monkeypants_telemetry.pinned_trace_id.
+    tracer_provider = TracerProvider(
+        resource=resource, id_generator=PinnedIdGenerator()
+    )
     tracer_provider.add_span_processor(
         BatchSpanProcessor(OTLPSpanExporter(endpoint=config.endpoint, insecure=True))
     )

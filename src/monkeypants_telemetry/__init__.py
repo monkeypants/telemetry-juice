@@ -26,13 +26,16 @@ from .logging import ContractFormatter, add_trace_id
 from .metrics import get_meter
 from .setup import configure, current_config
 from .trace_context import (
+    PinnedIdGenerator,
     extract_context,
     get_trace_id,
     inject_context,
+    pinned_trace_id,
 )
 
 __all__ = [
     "ContractFormatter",
+    "PinnedIdGenerator",
     "TelemetryConfig",
     "add_trace_id",
     "configure",
@@ -41,6 +44,7 @@ __all__ = [
     "get_meter",
     "get_trace_id",
     "inject_context",
+    "pinned_trace_id",
 ]
 
 __version__ = "0.1.0"

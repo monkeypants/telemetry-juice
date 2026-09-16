@@ -7,11 +7,15 @@ returning ``None`` and empty dicts rather than raising.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import uuid
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
+from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 
 def get_trace_id() -> str | None:
@@ -80,3 +84,80 @@ def extract_context(headers: Mapping[str, Any]) -> Any:
         A context suitable for ``start_as_current_span(context=...)``.
     """
     return extract(HeaderCarrier(headers))
+
+
+# --- pinning a trace to an id the domain already owns ---------------------
+
+_pinned: ContextVar[int | None] = ContextVar(
+    "monkeypants_telemetry_pinned_trace_id", default=None
+)
+
+
+def _as_trace_id(value: str | int) -> int:
+    """Coerce a UUID, 32 hex characters or an int into a trace id.
+
+    Raises:
+        ValueError: If it is not 128 bits, or is the all-zero id that
+            OpenTelemetry reserves to mean "invalid".
+    """
+    if isinstance(value, int):
+        trace_id = value
+    else:
+        text = value.strip().replace("-", "")
+        if len(text) != 32:
+            raise ValueError(f"need 32 hex characters or a UUID, got {value!r}")
+        trace_id = int(text, 16)
+    if not 0 < trace_id < 1 << 128:
+        raise ValueError(f"not a valid trace id: {value!r}")
+    return trace_id
+
+
+@contextmanager
+def pinned_trace_id(value: str | uuid.UUID | int) -> Iterator[None]:
+    """Make root spans started in this block use ``value`` as their trace id.
+
+    For work whose identity is already established elsewhere — a batch run,
+    a workflow, a job — so that logs written during the work can carry that
+    identifier and still join the trace, even when the trace is emitted
+    afterwards and the work never had a span while it ran.
+
+    Only *root* spans are affected. A span started under a parent inherits
+    the parent's trace id, which is what makes this safe to leave installed:
+    with nothing pinned, and for every child span, ids are random as usual.
+
+    The value should itself be random — a UUID is the intended case. The
+    generator continues to report trace ids as random for the W3C
+    ``random-trace-id`` flag, which a UUID satisfies and a counter would not.
+
+    Args:
+        value: A UUID, 32 hex characters, or a 128-bit int.
+
+    Raises:
+        ValueError: If the value is not a valid, non-zero 128-bit id.
+
+    Example:
+        >>> from opentelemetry import trace
+        >>> run_id = "fef5abac-7308-4ba7-9cc0-c79b2d727203"
+        >>> with pinned_trace_id(run_id):
+        ...     span = trace.get_tracer("example").start_span("run")
+        ...     span.end()
+    """
+    raw = str(value) if isinstance(value, uuid.UUID) else value
+    token = _pinned.set(_as_trace_id(raw))
+    try:
+        yield
+    finally:
+        _pinned.reset(token)
+
+
+class PinnedIdGenerator(RandomIdGenerator):
+    """Random ids, except where :func:`pinned_trace_id` says otherwise.
+
+    Installed by :func:`~monkeypants_telemetry.configure`. It costs one
+    context-variable read per root span and changes nothing when unused,
+    which is why it is unconditional rather than an option.
+    """
+
+    def generate_trace_id(self) -> int:
+        pinned = _pinned.get()
+        return super().generate_trace_id() if pinned is None else pinned
