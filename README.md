@@ -13,25 +13,23 @@ guard. `tests/test_contract.py` defends that property.
 
 ## Install
 
-Not published to an index. Consumers take a submodule and depend on it by
-path:
-
-```sh
-git submodule add git@github.com:monkeypants/telemetry-juice.git \
-    vendor/telemetry-juice
-```
+Not published to an index. Depend on a release tag from git:
 
 ```toml
 dependencies = ["telemetry-juice[django,psycopg]"]
 
 [tool.uv.sources]
-telemetry-juice = { path = "vendor/telemetry-juice" }
+telemetry-juice = { git = "https://github.com/monkeypants/telemetry-juice.git", tag = "v0.2.0" }
 ```
 
-A git dependency on a private repository needs a credential wherever the build
-runs. A submodule does not: the clone happens where the credential already is,
-and only files travel. When there is an index, drop the source block and give
-the dependency a version.
+The tag says which release you meant, and `uv.lock` records the exact
+commit, so an upgrade happens only when someone moves the tag in
+`pyproject.toml` and re-locks. To work on this library alongside a project,
+point the source at a local checkout with `path = "../telemetry-juice"` for
+the duration, and put the tag back before committing.
+
+When there is an index, drop the source block and give the dependency a
+version.
 
 Base install pulls the OTel API and SDK only. Integrations are extras, so a
 Django project never installs `temporalio`.
