@@ -100,7 +100,7 @@ def extract_context(headers: Mapping[str, Any]) -> Any:
 # --- pinning a trace to an id the domain already owns ---------------------
 
 _pinned: ContextVar[int | None] = ContextVar(
-    "monkeypants_telemetry_pinned_trace_id", default=None
+    "telemetry_juice_pinned_trace_id", default=None
 )
 
 
@@ -164,7 +164,7 @@ def pinned_trace_id(value: str | uuid.UUID | int) -> Iterator[None]:
 class PinnedIdGenerator(RandomIdGenerator):
     """Random ids, except where :func:`pinned_trace_id` says otherwise.
 
-    Installed by :func:`~monkeypants_telemetry.configure`. It costs one
+    Installed by :func:`~telemetry_juice.configure`. It costs one
     context-variable read per root span and changes nothing when unused,
     which is why it is unconditional rather than an option.
     """

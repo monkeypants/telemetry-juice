@@ -51,7 +51,7 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
 
     # PinnedIdGenerator so that work with an identity of its own - a batch
     # run, a workflow - can emit a trace under that id. Random otherwise;
-    # see monkeypants_telemetry.pinned_trace_id.
+    # see telemetry_juice.pinned_trace_id.
     tracer_provider = TracerProvider(
         resource=resource, id_generator=PinnedIdGenerator()
     )
