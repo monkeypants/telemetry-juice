@@ -149,6 +149,15 @@ class TestLogShape:
         assert payload["logger"] == "app.thing"
         assert "timestamp" in payload
 
+    def test_timestamp_orders_lines_within_a_second(self) -> None:
+        """Whole-second stamps leave a burst of lines with no order."""
+        record = logging.LogRecord("app", logging.INFO, __file__, 1, "x", (), None)
+        record.created = 1_700_000_000.123
+
+        payload = json.loads(ContractFormatter().format(record))
+
+        assert payload["timestamp"] == "2023-11-14T22:13:20.123+00:00"
+
     def test_extra_fields_survive(self) -> None:
         record = logging.LogRecord(
             name="app",
