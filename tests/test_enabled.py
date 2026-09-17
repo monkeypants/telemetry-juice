@@ -1,0 +1,85 @@
+"""What the contract promises once something is collecting.
+
+The disabled path proves a project can adopt this package without the
+platform. These prove the other half: that with a provider installed, the
+trace ID actually reaches the logs and survives a hop through headers.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+
+from telemetry_juice import (
+    ContractFormatter,
+    add_trace_id,
+    extract_context,
+    get_trace_id,
+    inject_context,
+)
+
+
+def _record(msg: str = "hello") -> logging.LogRecord:
+    return logging.LogRecord("app", logging.INFO, __file__, 1, msg, (), None)
+
+
+class TestTraceIdReachesLogs:
+    def test_trace_id_is_the_current_span_trace(self, tracer: trace.Tracer) -> None:
+        with tracer.start_as_current_span("work") as span:
+            expected = format(span.get_span_context().trace_id, "032x")
+            assert get_trace_id() == expected
+
+    def test_formatter_stamps_trace_id_inside_a_span(
+        self, tracer: trace.Tracer
+    ) -> None:
+        with tracer.start_as_current_span("work"):
+            payload = json.loads(ContractFormatter().format(_record()))
+            assert payload["trace_id"] == get_trace_id()
+
+    def test_structlog_processor_stamps_trace_id_inside_a_span(
+        self, tracer: trace.Tracer
+    ) -> None:
+        with tracer.start_as_current_span("work"):
+            event = add_trace_id(None, "info", {"event": "hello"})
+            assert event["trace_id"] == get_trace_id()
+
+
+class TestContextCrossesAHop:
+    """A span started from injected headers belongs to the caller's trace."""
+
+    def test_injected_headers_carry_traceparent(self, tracer: trace.Tracer) -> None:
+        with tracer.start_as_current_span("caller"):
+            headers = inject_context()
+        assert "traceparent" in headers
+
+    def test_round_trip_joins_the_callers_trace(
+        self, tracer: trace.Tracer, spans: InMemorySpanExporter
+    ) -> None:
+        with tracer.start_as_current_span("caller"):
+            headers = inject_context()
+
+        with tracer.start_as_current_span("callee", context=extract_context(headers)):
+            pass
+
+        caller, callee = spans.get_finished_spans()
+        assert callee.context.trace_id == caller.context.trace_id
+        assert callee.parent is not None
+        assert callee.parent.span_id == caller.context.span_id
+
+    def test_round_trip_survives_bytes_headers(
+        self, tracer: trace.Tracer, spans: InMemorySpanExporter
+    ) -> None:
+        """Queues commonly deliver header values as bytes."""
+        with tracer.start_as_current_span("caller"):
+            headers = {k: v.encode() for k, v in inject_context().items()}
+
+        with tracer.start_as_current_span("callee", context=extract_context(headers)):
+            pass
+
+        caller, callee = spans.get_finished_spans()
+        assert callee.context.trace_id == caller.context.trace_id
