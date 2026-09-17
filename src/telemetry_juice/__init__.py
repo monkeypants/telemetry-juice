@@ -28,6 +28,7 @@ from .setup import configure, current_config
 from .trace_context import (
     PinnedIdGenerator,
     extract_context,
+    get_span_id,
     get_trace_id,
     inject_context,
     pinned_trace_id,
@@ -42,6 +43,7 @@ __all__ = [
     "current_config",
     "extract_context",
     "get_meter",
+    "get_span_id",
     "get_trace_id",
     "inject_context",
     "pinned_trace_id",

@@ -21,6 +21,7 @@ from telemetry_juice import (
     TelemetryConfig,
     add_trace_id,
     extract_context,
+    get_span_id,
     get_trace_id,
     inject_context,
 )
@@ -44,12 +45,19 @@ class TestTraceIdReachesLogs:
             payload = json.loads(ContractFormatter().format(_record()))
             assert payload["trace_id"] == get_trace_id()
 
+    def test_formatter_stamps_span_id_inside_a_span(self, tracer: trace.Tracer) -> None:
+        """The span ID narrows a log line to one operation within the trace."""
+        with tracer.start_as_current_span("work") as span:
+            payload = json.loads(ContractFormatter().format(_record()))
+            assert payload["span_id"] == format(span.get_span_context().span_id, "016x")
+
     def test_structlog_processor_stamps_trace_id_inside_a_span(
         self, tracer: trace.Tracer
     ) -> None:
         with tracer.start_as_current_span("work"):
             event = add_trace_id(None, "info", {"event": "hello"})
             assert event["trace_id"] == get_trace_id()
+            assert event["span_id"] == get_span_id()
 
 
 class TestContextCrossesAHop:

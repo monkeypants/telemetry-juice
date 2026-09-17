@@ -16,6 +16,7 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.trace import SpanContext
 
 
 def get_trace_id() -> str | None:
@@ -24,13 +25,23 @@ def get_trace_id() -> str | None:
     Returns:
         The trace ID, or ``None`` outside a valid trace context.
     """
-    span = trace.get_current_span()
-    if span is None:
-        return None
-    ctx = span.get_span_context()
-    if ctx is None or not ctx.is_valid:
-        return None
-    return format(ctx.trace_id, "032x")
+    ctx = _current_span_context()
+    return format(ctx.trace_id, "032x") if ctx else None
+
+
+def _current_span_context() -> SpanContext | None:
+    ctx = trace.get_current_span().get_span_context()
+    return ctx if ctx.is_valid else None
+
+
+def get_span_id() -> str | None:
+    """The current span ID as 16 hex characters.
+
+    Returns:
+        The span ID, or ``None`` outside a valid trace context.
+    """
+    ctx = _current_span_context()
+    return format(ctx.span_id, "016x") if ctx else None
 
 
 def inject_context() -> dict[str, str]:
