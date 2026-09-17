@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 
+import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
@@ -23,7 +24,7 @@ from telemetry_juice import (
     get_trace_id,
     inject_context,
 )
-from telemetry_juice.setup import _build_exporters
+from telemetry_juice.setup import _build_exporters, _build_resource
 
 
 def _record(msg: str = "hello") -> logging.LogRecord:
@@ -117,3 +118,29 @@ class TestExporters:
         assert "proto.http" in type(span_exporter).__module__
         assert span_exporter._endpoint == "https://otel:4318/v1/traces"
         assert metric_exporter._endpoint == "https://otel:4318/v1/metrics"
+
+
+class TestResource:
+    """What every span and metric says about where it came from."""
+
+    def test_identity_attributes(self) -> None:
+        resource = _build_resource(
+            TelemetryConfig(
+                "familiar-api", namespace="demo-solution", environment="production"
+            )
+        )
+        assert resource.attributes["service.name"] == "familiar-api"
+        assert resource.attributes["service.namespace"] == "demo-solution"
+        assert resource.attributes["deployment.environment.name"] == "production"
+
+    def test_deprecated_environment_name_is_still_emitted(self) -> None:
+        resource = _build_resource(TelemetryConfig("svc", environment="production"))
+        assert resource.attributes["deployment.environment"] == "production"
+
+    def test_resource_attributes_variable_is_merged(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "team=platform,service.name=x")
+        resource = _build_resource(TelemetryConfig("svc"))
+        assert resource.attributes["team"] == "platform"
+        assert resource.attributes["service.name"] == "svc"

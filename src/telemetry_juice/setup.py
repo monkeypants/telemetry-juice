@@ -109,11 +109,18 @@ def _build_exporters(config: TelemetryConfig) -> tuple[Any, Any]:
 
 
 def _build_resource(config: TelemetryConfig) -> Resource:
-    """Assemble the resource attributes the contract requires."""
+    """Assemble the resource attributes the contract requires.
+
+    ``OTEL_RESOURCE_ATTRIBUTES`` is merged in by ``Resource.create``; the
+    attributes set here win over it.
+    """
     attributes: dict[str, str] = {"service.name": config.service_name}
     if config.namespace:
         attributes["service.namespace"] = config.namespace
     if config.environment:
+        attributes["deployment.environment.name"] = config.environment
+        # Deprecated name, still emitted so existing dashboards and queries
+        # keep matching while they move to deployment.environment.name.
         attributes["deployment.environment"] = config.environment
     return Resource.create(attributes)
 
