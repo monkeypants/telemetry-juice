@@ -82,12 +82,12 @@ class TracingInterceptor(Interceptor):
     """Worker interceptor producing spans for workflows and activities.
 
     Pair it with
-    :func:`~monkeypants_telemetry.trace_context.inject_context` on the
+    :func:`~telemetry_juice.trace_context.inject_context` on the
     starting side — the interceptor can only continue a trace whose context
     actually arrived in the headers.
 
     Example:
-        >>> from monkeypants_telemetry.integrations.temporal import (
+        >>> from telemetry_juice.integrations.temporal import (
         ...     TracingInterceptor,
         ... )
         >>> # worker = Worker(client, task_queue="q",

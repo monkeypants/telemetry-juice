@@ -9,7 +9,7 @@ def instrument_fastapi(app: Any, **kwargs: Any) -> None:
     """Auto-instrument a FastAPI app.
 
     Creates a server span per request with method, route and status. Call
-    after :func:`~monkeypants_telemetry.setup.configure`; harmless when
+    after :func:`~telemetry_juice.setup.configure`; harmless when
     telemetry is disabled, since the spans go to the no-op provider.
 
     Args:

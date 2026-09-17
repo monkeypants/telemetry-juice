@@ -6,5 +6,5 @@ extras in ``pyproject.toml`` decide what gets installed:
 
 .. code-block:: sh
 
-    uv add "monkeypants-telemetry[fastapi,temporal]"
+    uv add "telemetry-juice[fastapi,temporal]"
 """

@@ -16,7 +16,7 @@ import uuid
 import pytest
 from opentelemetry import trace
 
-from monkeypants_telemetry import (
+from telemetry_juice import (
     ContractFormatter,
     PinnedIdGenerator,
     TelemetryConfig,
@@ -173,7 +173,7 @@ class TestIntegrationsAreOptional:
         """Run in a subprocess: sys.modules in-process is already polluted by
         collection, so only a clean interpreter can answer this honestly."""
         probe = (
-            "import sys; import monkeypants_telemetry; "
+            "import sys; import telemetry_juice; "
             "leaked = [m for m in ('temporalio', 'fastapi', 'django') "
             "if m in sys.modules]; "
             "print(','.join(leaked))"
@@ -197,7 +197,7 @@ class TestEveryAdvertisedIntegrationExists:
     it in the table of what each extra gives you, is a promise. It was not
     kept: the extra and the documentation existed and
     ``instrument_psycopg`` did not, so the first project to install
-    ``monkeypants-telemetry[psycopg]`` got exactly what it asked for and
+    ``telemetry-juice[psycopg]`` got exactly what it asked for and
     then an ImportError reaching for it.
 
     Nothing caught that, because every test here imports what it knows is
@@ -237,7 +237,7 @@ class TestEveryAdvertisedIntegrationExists:
         without any of the optional dependencies installed — which is the
         point, since no environment has all of them.
         """
-        from monkeypants_telemetry.integrations import clients
+        from telemetry_juice.integrations import clients
 
         name = f"instrument_{extra}"
         assert hasattr(clients, name), (

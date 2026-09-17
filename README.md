@@ -3,7 +3,7 @@
 It seems like I keep doing this, so I wanted to standardise. Lots of things
 need telemetry juice.
 
-Provides `monkeypants-telemetry`: OpenTelemetry setup for services that should
+Provides `telemetry-juice`: OpenTelemetry setup for services that should
 not have to know whether anything is collecting.
 
 With no `OTEL_EXPORTER_OTLP_ENDPOINT` set, every call here is a no-op and the
@@ -22,10 +22,10 @@ git submodule add git@github.com:monkeypants/telemetry-juice.git \
 ```
 
 ```toml
-dependencies = ["monkeypants-telemetry[django,psycopg]"]
+dependencies = ["telemetry-juice[django,psycopg]"]
 
 [tool.uv.sources]
-monkeypants-telemetry = { path = "vendor/telemetry-juice" }
+telemetry-juice = { path = "vendor/telemetry-juice" }
 ```
 
 A git dependency on a private repository needs a credential wherever the build
@@ -47,8 +47,8 @@ Django project never installs `temporalio`.
 ## Use
 
 ```python
-from monkeypants_telemetry import TelemetryConfig, configure
-from monkeypants_telemetry.integrations.asgi import instrument_fastapi
+from telemetry_juice import TelemetryConfig, configure
+from telemetry_juice.integrations.asgi import instrument_fastapi
 
 configure(TelemetryConfig.from_env("familiar-api"))
 instrument_fastapi(app, excluded_urls="/health,/ready")
