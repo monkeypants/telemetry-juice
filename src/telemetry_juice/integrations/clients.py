@@ -55,12 +55,6 @@ def instrument_psycopg(**kwargs: Any) -> None:
         **kwargs: Passed through, e.g. ``enable_commenter=True`` to embed
             trace context in SQL comments so slow queries in postgres's own
             logs can be traced back to the request that caused them.
-
-    The ``psycopg`` extra was declared, and this function was listed in the
-    README's table, from the day the package was written. It did not exist:
-    the first consumer to reach for it got an ImportError from a dependency
-    it had correctly installed. Found the first time the package was adopted
-    as a package rather than copied.
     """
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 

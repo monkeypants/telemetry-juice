@@ -218,16 +218,10 @@ class TestIntegrationsAreOptional:
 class TestEveryAdvertisedIntegrationExists:
     """An extra a project can install must name a function it can call.
 
-    ``pyproject.toml`` declaring a ``psycopg`` extra, and the README listing
-    it in the table of what each extra gives you, is a promise. It was not
-    kept: the extra and the documentation existed and
-    ``instrument_psycopg`` did not, so the first project to install
-    ``telemetry-juice[psycopg]`` got exactly what it asked for and
-    then an ImportError reaching for it.
-
-    Nothing caught that, because every test here imports what it knows is
-    there. This one goes the other way: it reads what the package advertises
-    and checks the code answers.
+    A declared extra is a promise: installing ``telemetry-juice[psycopg]``
+    should give you ``instrument_psycopg``. Tests that import what they know
+    exists cannot catch a broken promise, so this one reads what the package
+    advertises and checks the code answers.
     """
 
     #: Extras that promise a client auto-instrumentation entry point. The
