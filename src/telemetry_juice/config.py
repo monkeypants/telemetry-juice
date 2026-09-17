@@ -20,7 +20,9 @@ class TelemetryConfig:
     Attributes:
         service_name: This process's name, e.g. ``"familiar-api"``. Becomes
             ``service.name``, and the ``service`` log label should match it.
-        endpoint: OTLP gRPC endpoint. ``None`` disables telemetry entirely.
+        endpoint: OTLP gRPC endpoint, with its scheme: ``http://`` is
+            plaintext, ``https://`` is TLS, and ``OTEL_EXPORTER_OTLP_INSECURE``
+            overrides either. ``None`` disables telemetry entirely.
         namespace: The solution this process belongs to, e.g.
             ``"demo-solution"``. Becomes ``service.namespace``. The consumer
             collector overrides this anyway, so it only matters when a

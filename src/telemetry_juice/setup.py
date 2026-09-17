@@ -62,7 +62,7 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
         resource=resource, id_generator=PinnedIdGenerator()
     )
     tracer_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=config.endpoint, insecure=True))
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=config.endpoint))
     )
     trace.set_tracer_provider(tracer_provider)
 
@@ -71,7 +71,7 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
             resource=resource,
             metric_readers=[
                 PeriodicExportingMetricReader(
-                    OTLPMetricExporter(endpoint=config.endpoint, insecure=True),
+                    OTLPMetricExporter(endpoint=config.endpoint),
                     export_interval_millis=config.metric_interval_ms,
                 )
             ],
