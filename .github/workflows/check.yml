@@ -1,0 +1,43 @@
+name: Check
+
+# `make check` on every pull request and on master: the same guards, lint,
+# strict typing, tests and doctests a contributor runs before pushing. A
+# change that only passes on someone's laptop has not passed.
+#
+# Both ends of the supported Python range, because requires-python is a
+# promise and the newest interpreter alone does not test it.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: make check (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # check_attribution.sh scans the commits not yet on origin/master,
+          # so it needs that ref and the history behind it.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+      # check-attribution fails unless the hooks are live, so wire them
+      # exactly as a fresh clone would.
+      - run: make install-hooks
+      - run: uv sync --locked
+      - run: make check
