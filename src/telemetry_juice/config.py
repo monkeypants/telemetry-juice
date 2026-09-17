@@ -31,7 +31,7 @@ class TelemetryConfig:
             collector overrides this anyway, so it only matters when a
             process exports directly.
         environment: Where it is deployed, e.g. ``"production"``. Becomes
-            ``deployment.environment``.
+            ``deployment.environment.name``.
         protocol: OTLP transport, ``"grpc"`` or ``"http/protobuf"``. The
             latter needs the ``http`` extra; ``endpoint`` is then the base
             URL, and ``/v1/traces`` and ``/v1/metrics`` are appended.
