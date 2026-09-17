@@ -1,6 +1,6 @@
 [project]
 name = "telemetry-juice"
-version = "0.1.0"
+version = "0.2.0"
 description = "The client half of the platform telemetry contract: OTLP setup that no-ops when no platform is present."
 requires-python = ">=3.11"
 license = { text = "MIT" }
