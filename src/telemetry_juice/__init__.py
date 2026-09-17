@@ -21,6 +21,8 @@ See ``docs/contract.rst`` in the platform repo for the obligations this
 discharges and the two it cannot (log shape and container labels).
 """
 
+from importlib.metadata import version
+
 from .config import TelemetryConfig
 from .logging import ContractFormatter, add_trace_id
 from .metrics import get_meter
@@ -49,4 +51,4 @@ __all__ = [
     "pinned_trace_id",
 ]
 
-__version__ = "0.1.0"
+__version__ = version("telemetry-juice")
