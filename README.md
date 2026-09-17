@@ -41,7 +41,7 @@ Django project never installs `temporalio`.
 | `fastapi` | `integrations.asgi.instrument_fastapi` |
 | `django` | `integrations.clients.instrument_django` |
 | `redis`, `httpx`, `sqlalchemy`, `psycopg` | the matching `integrations.clients.*` |
-| `temporal` | `integrations.temporal.TracingInterceptor` |
+| `temporal` | `integrations.temporal.TracingInterceptor` (Temporal's own; register it on the client) |
 | `structlog` | nothing; `add_trace_id` is a plain processor |
 
 ## Use

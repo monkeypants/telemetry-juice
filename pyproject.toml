@@ -24,13 +24,9 @@ temporal = ["temporalio>=1.7.0"]
 structlog = ["structlog>=24.1.0"]
 
 [dependency-groups]
-# temporalio is here and the other integrations' libraries are not, because
-# it is the only one this package *subclasses*. Without it installed mypy
-# resolves the interceptor base classes to `Any`, and strict mode rejects
-# subclassing `Any` — so the choice was between silencing that and checking
-# it for real. Checking it for real is worth one dev dependency: an
-# interceptor with a wrong signature is exactly the defect a type checker
-# should catch, and it is not covered by a test.
+# temporalio is here and the other integrations' libraries are not, so that
+# mypy checks the Temporal re-export and its doctest runs against the real
+# package rather than resolving it to `Any`.
 dev = [
     "pytest>=8.0",
     "mypy>=1.11",
@@ -57,8 +53,8 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-# temporalio is no longer here: it is installed in the dev group, so its
-# real types are checked rather than assumed missing.
+# temporalio is absent: it is installed in the dev group, so its real types
+# are checked rather than assumed missing.
 module = ["opentelemetry.*", "structlog.*"]
 ignore_missing_imports = true
 

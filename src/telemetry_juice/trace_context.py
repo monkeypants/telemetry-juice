@@ -37,8 +37,8 @@ def inject_context() -> dict[str, str]:
     """Serialise the current context into W3C headers.
 
     Use when handing work to something that carries its own headers — a
-    Temporal workflow start, a queue message, an outbound request a library
-    does not instrument for you.
+    queue message, or an outbound request a library does not instrument for
+    you. Temporal is covered by its interceptor and needs no call here.
 
     Returns:
         A dict with ``traceparent`` (and ``tracestate`` where relevant),
@@ -52,8 +52,8 @@ def inject_context() -> dict[str, str]:
 class HeaderCarrier(Mapping[str, str]):
     """Adapts a bytes-or-str header mapping to the propagator's getter.
 
-    Temporal hands headers back as bytes; most queues do the same. This
-    normalises without copying the whole mapping.
+    Most queues hand header values back as bytes. This normalises without
+    copying the whole mapping.
     """
 
     def __init__(self, headers: Mapping[str, Any]) -> None:
