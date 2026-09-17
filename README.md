@@ -62,7 +62,7 @@ default, or `http/protobuf`).
 ## Logs
 
 This does not ship logs. It provides the shape a log pipeline expects: a
-`level`, a `msg`, and a `trace_id` only while a trace is open.
+`level`, a `msg`, and a `trace_id` and `span_id` only while a trace is open.
 
 ```python
 # structlog

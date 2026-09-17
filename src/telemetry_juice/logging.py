@@ -1,7 +1,8 @@
 """The log half of the contract.
 
 Projects do not ship logs. They write structured JSON to stdout carrying
-``level``, ``msg`` and — when inside a trace — ``trace_id``; the consumer's
+``level``, ``msg`` and — when inside a trace — ``trace_id`` and
+``span_id``; the consumer's
 vector sidecar does the rest. These helpers make that shape easy to produce
 from either structlog or the standard library, so nothing has to hand-roll it.
 """
@@ -13,13 +14,13 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from .trace_context import get_trace_id
+from .trace_context import get_span_id, get_trace_id
 
 
 def add_trace_id(
     logger: Any, method_name: str, event_dict: dict[str, Any]
 ) -> dict[str, Any]:
-    """structlog processor that stamps ``trace_id`` onto every event.
+    """structlog processor that stamps ``trace_id`` and ``span_id`` on events.
 
     Place it late in the chain, before the renderer. Outside a trace it adds
     nothing rather than adding a null, which keeps Grafana's derived-field
@@ -40,6 +41,7 @@ def add_trace_id(
     trace_id = get_trace_id()
     if trace_id:
         event_dict["trace_id"] = trace_id
+        event_dict["span_id"] = get_span_id()
     return event_dict
 
 
@@ -75,6 +77,7 @@ class ContractFormatter(logging.Formatter):
         trace_id = get_trace_id()
         if trace_id:
             payload["trace_id"] = trace_id
+            payload["span_id"] = get_span_id()
 
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
