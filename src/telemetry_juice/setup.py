@@ -28,7 +28,7 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
         re-reading the environment.
 
     Example:
-        >>> from monkeypants_telemetry import TelemetryConfig, configure
+        >>> from telemetry_juice import TelemetryConfig, configure
         >>> cfg = configure(TelemetryConfig.from_env("familiar-api"))
         >>> cfg.enabled
         False

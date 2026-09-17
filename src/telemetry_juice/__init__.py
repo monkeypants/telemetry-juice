@@ -6,8 +6,8 @@ platform exists, or that any other project is running on the same box.
 
 .. code-block:: python
 
-    from monkeypants_telemetry import TelemetryConfig, configure
-    from monkeypants_telemetry.integrations.asgi import instrument_fastapi
+    from telemetry_juice import TelemetryConfig, configure
+    from telemetry_juice.integrations.asgi import instrument_fastapi
 
     configure(TelemetryConfig.from_env("familiar-api"))
     instrument_fastapi(app, excluded_urls="/health,/ready")
