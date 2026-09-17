@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from .trace_context import get_trace_id
@@ -66,7 +67,9 @@ class ContractFormatter(logging.Formatter):
             "level": record.levelname.lower(),
             "msg": record.getMessage(),
             "logger": record.name,
-            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(
+                timespec="milliseconds"
+            ),
         }
 
         trace_id = get_trace_id()
