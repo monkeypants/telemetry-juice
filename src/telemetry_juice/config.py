@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Literal
+
+Protocol = Literal["grpc", "http/protobuf"]
 
 
 @dataclass(frozen=True)
@@ -20,7 +23,7 @@ class TelemetryConfig:
     Attributes:
         service_name: This process's name, e.g. ``"familiar-api"``. Becomes
             ``service.name``, and the ``service`` log label should match it.
-        endpoint: OTLP gRPC endpoint, with its scheme: ``http://`` is
+        endpoint: OTLP endpoint, with its scheme: ``http://`` is
             plaintext, ``https://`` is TLS, and ``OTEL_EXPORTER_OTLP_INSECURE``
             overrides either. ``None`` disables telemetry entirely.
         namespace: The solution this process belongs to, e.g.
@@ -29,6 +32,9 @@ class TelemetryConfig:
             process exports directly.
         environment: Where it is deployed, e.g. ``"production"``. Becomes
             ``deployment.environment``.
+        protocol: OTLP transport, ``"grpc"`` or ``"http/protobuf"``. The
+            latter needs the ``http`` extra; ``endpoint`` is then the base
+            URL, and ``/v1/traces`` and ``/v1/metrics`` are appended.
         metric_interval_ms: How often metrics are flushed.
     """
 
@@ -36,6 +42,7 @@ class TelemetryConfig:
     endpoint: str | None = None
     namespace: str | None = None
     environment: str | None = None
+    protocol: Protocol = "grpc"
     metric_interval_ms: int = 60_000
 
     @property
@@ -54,7 +61,8 @@ class TelemetryConfig:
         Reads ``OTEL_SERVICE_NAME``, ``OTEL_EXPORTER_OTLP_ENDPOINT``,
         ``SOLUTION`` and ``ENVIRONMENT`` — the same four the consumer sidecar
         template sets, so a project that copies the template gets a working
-        config without naming anything twice.
+        config without naming anything twice. ``OTEL_EXPORTER_OTLP_PROTOCOL``
+        is read too, defaulting to ``grpc``.
 
         ``CLIENT`` is deliberately not read. It is a Loki label, set by the
         sidecar, and OpenTelemetry has no resource attribute that means it —
@@ -70,7 +78,8 @@ class TelemetryConfig:
             A resolved config. Disabled if no endpoint was found.
 
         Raises:
-            ValueError: If no service name is available from either source.
+            ValueError: If no service name is available from either source,
+                or the protocol is not one this package can export.
         """
         name = service_name or os.getenv("OTEL_SERVICE_NAME")
         if not name:
@@ -78,11 +87,19 @@ class TelemetryConfig:
                 "no service name: pass service_name= or set OTEL_SERVICE_NAME"
             )
 
+        protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL") or "grpc"
+        if protocol not in ("grpc", "http/protobuf"):
+            raise ValueError(
+                f"unsupported OTEL_EXPORTER_OTLP_PROTOCOL {protocol!r}: "
+                "use 'grpc' or 'http/protobuf'"
+            )
+
         resolved: dict[str, object] = {
             "service_name": name,
             "endpoint": os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or None,
             "namespace": os.getenv("SOLUTION") or None,
             "environment": os.getenv("ENVIRONMENT") or None,
+            "protocol": protocol,
         }
         resolved.update(overrides)
         return cls(**resolved)  # type: ignore[arg-type]

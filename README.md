@@ -42,6 +42,7 @@ Django project never installs `temporalio`.
 | `django` | `integrations.clients.instrument_django` |
 | `redis`, `httpx`, `sqlalchemy`, `psycopg` | the matching `integrations.clients.*` |
 | `temporal` | `integrations.temporal.TracingInterceptor` (Temporal's own; register it on the client) |
+| `http` | OTLP over HTTP, with `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` |
 | `structlog` | nothing; `add_trace_id` is a plain processor |
 
 ## Use
@@ -55,7 +56,8 @@ instrument_fastapi(app, excluded_urls="/health,/ready")
 ```
 
 `from_env` reads `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
-`SOLUTION` and `ENVIRONMENT`.
+`SOLUTION` and `ENVIRONMENT`, plus `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc` by
+default, or `http/protobuf`).
 
 ## Logs
 

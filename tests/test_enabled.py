@@ -17,11 +17,13 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 
 from telemetry_juice import (
     ContractFormatter,
+    TelemetryConfig,
     add_trace_id,
     extract_context,
     get_trace_id,
     inject_context,
 )
+from telemetry_juice.setup import _build_exporters
 
 
 def _record(msg: str = "hello") -> logging.LogRecord:
@@ -83,3 +85,35 @@ class TestContextCrossesAHop:
 
         caller, callee = spans.get_finished_spans()
         assert callee.context.trace_id == caller.context.trace_id
+
+
+class TestExporters:
+    """The transport follows the protocol, and TLS follows the scheme."""
+
+    def test_grpc_is_the_default(self) -> None:
+        span_exporter, _ = _build_exporters(
+            TelemetryConfig("svc", endpoint="http://otel:4317")
+        )
+        assert "proto.grpc" in type(span_exporter).__module__
+
+    def test_http_endpoint_scheme_is_plaintext(self) -> None:
+        span_exporter, _ = _build_exporters(
+            TelemetryConfig("svc", endpoint="http://otel:4317")
+        )
+        assert span_exporter._insecure is True
+
+    def test_https_endpoint_scheme_is_tls(self) -> None:
+        span_exporter, _ = _build_exporters(
+            TelemetryConfig("svc", endpoint="https://otel:4317")
+        )
+        assert span_exporter._insecure is False
+
+    def test_http_protobuf_appends_signal_paths(self) -> None:
+        span_exporter, metric_exporter = _build_exporters(
+            TelemetryConfig(
+                "svc", endpoint="https://otel:4318/", protocol="http/protobuf"
+            )
+        )
+        assert "proto.http" in type(span_exporter).__module__
+        assert span_exporter._endpoint == "https://otel:4318/v1/traces"
+        assert metric_exporter._endpoint == "https://otel:4318/v1/metrics"

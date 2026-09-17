@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from opentelemetry import metrics, trace
 from opentelemetry.sdk.resources import Resource
 
@@ -39,21 +41,13 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
     if not config.enabled:
         return config
 
-    # Imported lazily so that a disabled process never pays for the exporter
-    # machinery, and so an import error in the gRPC stack cannot break a
-    # laptop run.
-    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-        OTLPMetricExporter,
-    )
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-        OTLPSpanExporter,
-    )
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
     resource = _build_resource(config)
+    span_exporter, metric_exporter = _build_exporters(config)
 
     # PinnedIdGenerator so that work with an identity of its own - a batch
     # run, a workflow - can emit a trace under that id. Random otherwise;
@@ -61,9 +55,7 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
     tracer_provider = TracerProvider(
         resource=resource, id_generator=PinnedIdGenerator()
     )
-    tracer_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=config.endpoint))
-    )
+    tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
     trace.set_tracer_provider(tracer_provider)
 
     metrics.set_meter_provider(
@@ -71,13 +63,49 @@ def configure(config: TelemetryConfig) -> TelemetryConfig:
             resource=resource,
             metric_readers=[
                 PeriodicExportingMetricReader(
-                    OTLPMetricExporter(endpoint=config.endpoint),
+                    metric_exporter,
                     export_interval_millis=config.metric_interval_ms,
                 )
             ],
         )
     )
     return config
+
+
+def _build_exporters(config: TelemetryConfig) -> tuple[Any, Any]:
+    """The span and metric exporters for the configured protocol.
+
+    Imported lazily so that a disabled process never pays for the exporter
+    machinery, and so an import error in the transport stack cannot break a
+    laptop run.
+    """
+    if config.protocol == "http/protobuf":
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+            OTLPMetricExporter as HTTPMetricExporter,
+        )
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter as HTTPSpanExporter,
+        )
+
+        # The HTTP exporters use an explicit endpoint verbatim; only the
+        # environment variable gets the signal path appended for you.
+        base = (config.endpoint or "").rstrip("/")
+        return (
+            HTTPSpanExporter(endpoint=f"{base}/v1/traces"),
+            HTTPMetricExporter(endpoint=f"{base}/v1/metrics"),
+        )
+
+    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+        OTLPMetricExporter,
+    )
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+        OTLPSpanExporter,
+    )
+
+    return (
+        OTLPSpanExporter(endpoint=config.endpoint),
+        OTLPMetricExporter(endpoint=config.endpoint),
+    )
 
 
 def _build_resource(config: TelemetryConfig) -> Resource:

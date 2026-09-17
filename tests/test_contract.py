@@ -103,6 +103,22 @@ class TestConfigFromEnv:
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
         assert TelemetryConfig.from_env("svc").enabled is False
 
+    def test_protocol_defaults_to_grpc(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_PROTOCOL", raising=False)
+        assert TelemetryConfig.from_env("svc").protocol == "grpc"
+
+    def test_http_protocol_is_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+        assert TelemetryConfig.from_env("svc").protocol == "http/protobuf"
+
+    def test_unknown_protocol_is_an_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``http/json`` is in the spec but has no Python exporter."""
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/json")
+        with pytest.raises(ValueError, match="unsupported"):
+            TelemetryConfig.from_env("svc")
+
     def test_missing_service_name_is_an_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
