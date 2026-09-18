@@ -231,6 +231,15 @@ class TestEveryAdvertisedIntegrationExists:
     #: processor that needs no library.
     CLIENT_EXTRAS = ("redis", "httpx", "sqlalchemy", "psycopg")
 
+    #: Extras whose entry point is a module of its own, and the attribute
+    #: that module must carry. ``httpx2`` is a fork the ``httpx``
+    #: instrumentation does not cover, so this package implements it.
+    MODULE_EXTRAS = {
+        "fastapi": ("asgi", "instrument_fastapi"),
+        "httpx2": ("httpx2", "instrument_httpx2"),
+        "temporal": ("temporal", "TracingInterceptor"),
+    }
+
     def _declared_extras(self) -> set[str]:
         import pathlib
         import tomllib
@@ -245,6 +254,17 @@ class TestEveryAdvertisedIntegrationExists:
         assert not missing, (
             f"{missing} are checked here but not declared as extras; "
             "this test is guarding something that does not exist"
+        )
+
+    @pytest.mark.parametrize("extra", sorted(MODULE_EXTRAS))
+    def test_each_module_extra_is_declared_and_answers(self, extra: str) -> None:
+        import importlib
+
+        assert extra in self._declared_extras(), extra
+        module_name, attribute = self.MODULE_EXTRAS[extra]
+        module = importlib.import_module(f"telemetry_juice.integrations.{module_name}")
+        assert hasattr(module, attribute), (
+            f"the {extra!r} extra promises integrations.{module_name}.{attribute}"
         )
 
     @pytest.mark.parametrize("extra", CLIENT_EXTRAS)
