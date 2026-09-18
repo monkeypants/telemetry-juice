@@ -39,6 +39,7 @@ Django project never installs `temporalio`.
 | `fastapi` | `integrations.asgi.instrument_fastapi` |
 | `django` | `integrations.clients.instrument_django` |
 | `redis`, `httpx`, `sqlalchemy`, `psycopg` | the matching `integrations.clients.*` |
+| `httpx2` | `integrations.httpx2.instrument_httpx2`, for the fork the `httpx` instrumentation does not cover |
 | `temporal` | `integrations.temporal.TracingInterceptor` (Temporal's own; register it on the client) |
 | `http` | OTLP over HTTP, with `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` |
 | `structlog` | nothing; `add_trace_id` is a plain processor |

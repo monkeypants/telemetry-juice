@@ -1,6 +1,6 @@
 [project]
 name = "telemetry-juice"
-version = "0.2.0"
+version = "0.3.0"
 description = "The client half of the platform telemetry contract: OTLP setup that no-ops when no platform is present."
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -19,20 +19,26 @@ django = ["opentelemetry-instrumentation-django>=0.48b0"]
 redis = ["opentelemetry-instrumentation-redis>=0.48b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy>=0.48b0"]
 httpx = ["opentelemetry-instrumentation-httpx>=0.48b0"]
+# httpx2 is a fork, and the instrumentation above patches httpx, so it does
+# nothing for a project on the fork. integrations.httpx2 wraps a transport
+# instead, which is the seam the fork already has.
+httpx2 = ["httpx2>=2.12.0"]
 psycopg = ["opentelemetry-instrumentation-psycopg>=0.48b0"]
 temporal = ["temporalio>=1.7.0"]
 http = ["opentelemetry-exporter-otlp-proto-http>=1.27.0"]
 structlog = ["structlog>=24.1.0"]
 
 [dependency-groups]
-# temporalio is here and the other integrations' libraries are not, so that
-# mypy checks the Temporal re-export and its doctest runs against the real
-# package rather than resolving it to `Any`.
+# temporalio and httpx2 are here and the other integrations' libraries are
+# not: the Temporal re-export and the httpx2 transport are the two this
+# package implements rather than calls, so both are checked and tested
+# against the real thing rather than resolved to `Any`.
 dev = [
     "pytest>=8.0",
     "mypy>=1.11",
     "ruff>=0.6",
     "temporalio>=1.7.0",
+    "httpx2>=2.12.0",
     "opentelemetry-exporter-otlp-proto-http>=1.27.0",
 ]
 
